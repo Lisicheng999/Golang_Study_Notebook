@@ -1132,3 +1132,166 @@ function main() is invoked
 ```
 
 在多个包中有`init()`函数时的调用顺序
+/GoDemo1/testutils/testutils.go
+```go
+import "fmt"
+
+var Age int
+var Sex string
+var Name string
+
+// declare funciton init()
+func init() {
+	fmt.Println("testutils.init() has invoked")
+	Age = 19
+	Sex = "女"
+	Name = "小王"
+}
+```
+/GoDemo1/main/main.go
+```go
+package main
+
+import (
+	"GoDemo1/testutils"
+	"fmt"
+)
+
+var num int = test()
+
+func test() int {
+	fmt.Println("function test() has invoked")
+	return 10
+}
+
+func init() {
+	fmt.Println("function main.init() has invoked")
+}
+
+func main() {
+	fmt.Println("function main() has invoked")
+	fmt.Printf("Age = %v, Sex = %v, Name = %v\n", testutils.Age, testutils.Sex, testutils.Name)
+	fmt.Println("num = ", num)
+}
+
+```
+Outputs:
+```
+testutils.init() has invoked
+function test() has invoked
+function main.init() has invoked
+function main() has invoked
+Age = 19, Sex = 女, Name = 小王
+num =  10
+```
+可以看出，每个包的变量首先被加载，然后是init()函数，然后才是其他函数
+main包调用了fmt和testutils包，首先会加载这些包的变量和init()函数，然后才是main包自己的内容
+
+### 匿名函数
+有一个函数只用到一次，可以将函数定义为匿名函数,在匿名函数使用时就直接调用
+```go
+func main() {
+	// 定义匿名函数
+	result := func(num1 int, num2 int) int {
+		return num1 + num2
+	}(10, 20)
+
+	fmt.Print(result)
+}
+```
+将匿名函数赋值给变量，使得匿名函数变为函数变量
+```go
+func main() {
+	// 定义匿名函数, 定义的同时调用
+	result := func(num1 int, num2 int) int {
+		return num1 + num2
+	}(10, 20)
+	fmt.Println(result)
+
+	// 将匿名函数赋值给一个变量，这个变量实际就是函数类型变量
+	sub := func(num1 int, num2 int) int {
+		return num1 - num2
+	}
+
+	sub(30, 70)
+	result2 := sub(20, 30)
+	fmt.Println(result2)
+}
+```
+Outputs：
+```
+30
+-10
+```
+此时这个函数变量就可以多次使用，等价于普通的函数
+上面的sub函数变成了局部函数变量，为了使得sub函数变为全局变量，可以将sub定义在main()函数外
+
+### 闭包
+闭包就是一个函数和与其相关的引用环境组合的一个整体
+```go
+// function get sum
+// function name: getSum, parameter: null
+// return type: fun(int) int, this return function's type is int
+func getSum() func(int) int {
+	sum := 10
+	return func(num int) int {
+		sum = sum + num
+		return sum
+	}
+}
+
+func main() {
+	f := getSum()
+	fmt.Println("f(26) = ", f(26))
+	fmt.Println("f(-24) = ", f(-24))
+}
+```
+Outputs:
+```
+f(26) =  36
+f(-24) =  12
+```
+可以看到，匿名函数引用的那个变量，可以一直使用
+闭包的本质依旧是一个匿名函数，只是这个匿名函数引用了外界的变量或者参数，因此这个匿名函数就和这些变量或者参数一起形成了一个整体，构成闭包
+闭包可以保存结果，而不是创建新的函数
+
+### defer
+为了在函数执行完后释放资源，Go提供defer功能，defer会将需要执行的语句压栈，然后在函数返回之后弹栈，执行defer的语句，按照入栈的顺序后进先出执行，首先来看它的执行顺序
+```go
+func main() {
+	add(10, 20)
+	fmt.Print("***")
+}
+
+func add(num1 int, num2 int) int {
+	// In golang, when program enconters `defer`, the code follows it does not
+	// execute immediately. Instead, it is pushed onto a stack to be execute later.
+	defer fmt.Println("num1 = ", num1)
+	defer fmt.Println("num2 = ", num2)
+
+	num1 += 10
+	num2 += 10
+	var sum int = num1 + num2
+	fmt.Println("sum = ", sum)
+	return sum
+}
+```
+Outputs:
+```
+sum =  50
+num2 =  20
+num1 =  10
+***
+```
+可见输出sum的操作先执行，然后按照压栈的顺序执行defer后的语句，但注意到`num1`和`num2`的值是在进行`+=10`操作前就已经被定下来了，而没有受到后续操作的影响，defer在压栈时将`num1`和`num2`的值进行了拷贝入栈
+因为defer存在这种延迟执行的机制，所以可以方便的用于资源的释放
+
+### 字符串处理函数
+#### 获取字符串长度len()
+ 统计字符串长度，按字节计算(utf-8的中文占3字节, ASCII字符占据一个字节)
+#### 对字符串进行遍历，for-range (slice)
+```go
+for i, value := range str {
+   fmt.Printf("index = %v, value = %v", i, value)
+}
+```
