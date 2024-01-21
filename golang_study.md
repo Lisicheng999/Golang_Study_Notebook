@@ -844,7 +844,7 @@ func main() {
 }
 
 ```
-Outputs:```30```
+Output:```30```
 2. 函数名
 	遵循标识符命名规范，使用驼峰命名，首字母不能是数字
 	首字母大写该函数，该函数可以被其他的包访问到，同样的变量和常量也如此(like public)
@@ -862,7 +862,7 @@ func main() {
 	fmt.Printf("sum = %v, sub = %v", sum, sub)
 }
 ```
-Outputs:`sum = 30, sub = -10`
+Output:`sum = 30, sub = -10`
 
 #### memory 内存
 ##### 栈(存放基本数据类型), 堆(存放复杂/派生数据类型)， 代码区(存放程序本身)
@@ -886,7 +886,7 @@ func main() {
 	test(1, 2, 3, 4, 5)
 }
 ```
-Outputs:`1 2 3 4 5 `
+Output:`1 2 3 4 5 `
 #### 基本数据类型和数组默认都是值传递，即进行值拷贝，在函数内修改不会影响原来的值
 ```go
 func test(num int) {
@@ -947,7 +947,7 @@ func main() {
 	c(num, b)
 }
 ```
-Outputs: 
+Output: 
 `num =  10
 num =  5`
 
@@ -981,7 +981,7 @@ func main() {
 	fmt.Printf("num1 = %v, type(num1) = %T", num1, num1)
 }
 ```
-Outputs: `num1 = 20, type(num1) = main.myInt`
+Output: `num1 = 20, type(num1) = main.myInt`
 
 同样也可以使用`type`给函数类型参数起别名, 指定自定义函数类型的参数类型列表和返回值列表
 ```go
@@ -997,7 +997,7 @@ func main() {
 	fmt.Printf("type(a) = %T\n", a)
 }
 ```
-Outputs:
+Output:
 ```
 11 + 20 =  31
 type(a) = main.func_Add
@@ -1017,7 +1017,7 @@ func main() {
 	fmt.Printf("type(tmpFunc) = %T\n", tmpFunc)
 }
 ```
-Outputs: 
+Output: 
 ```
 0.9141 + 1.54e-3 = 0.915640, 0.9141 - 1.54e-3 = 0.912560
 type(tmpFunc) = main.funcAddAndSub
@@ -1102,7 +1102,7 @@ func main() {
 	fmt.Println("function main() is invoked")
 }
 ```
-Outputs:
+Output:
 ```
 function init() is invoked
 function main() is invoked
@@ -1124,7 +1124,7 @@ func main() {
 	fmt.Println("function main() has invoked")
 }
 ```
-Outputs:
+Output:
 ```
 function test() is invoked
 function init() is invoked
@@ -1175,7 +1175,7 @@ func main() {
 }
 
 ```
-Outputs:
+Output:
 ```
 testutils.init() has invoked
 function test() has invoked
@@ -1218,7 +1218,7 @@ func main() {
 	fmt.Println(result2)
 }
 ```
-Outputs：
+Output：
 ```
 30
 -10
@@ -1246,7 +1246,7 @@ func main() {
 	fmt.Println("f(-24) = ", f(-24))
 }
 ```
-Outputs:
+Output:
 ```
 f(26) =  36
 f(-24) =  12
@@ -1276,7 +1276,7 @@ func add(num1 int, num2 int) int {
 	return sum
 }
 ```
-Outputs:
+Output:
 ```
 sum =  50
 num2 =  20
@@ -1289,9 +1289,123 @@ num1 =  10
 ### 字符串处理函数
 #### 获取字符串长度len()
  统计字符串长度，按字节计算(utf-8的中文占3字节, ASCII字符占据一个字节)
+ ```go
+ func main() {
+	var str string = "hello golang"
+	for i := 0; i < len(str); i++ {
+		fmt.Printf("%c|", str[i])
+	}
+}
+ ```
 #### 对字符串进行遍历，for-range (slice)
+方式一：use range slice
 ```go
-for i, value := range str {
-   fmt.Printf("index = %v, value = %v", i, value)
+func main() {
+	str := "go语言"
+	for i, value := range str {
+		fmt.Printf("index = %v, value = %v, char = %c\n", i, value, value)
+	}
 }
 ```
+方式二 use []rune()
+```go
+func main() {
+	str := "go语言"
+	r := []rune(str)
+	for i := 0; i < len(r); i++ {
+		fmt.Printf("i = %v, value = %v, char = %c\n", i, r[i], r[i])
+	}
+}
+```
+Output:
+```
+index = 0, value = 103, char = g
+index = 1, value = 111, char = o
+index = 2, value = 35821, char = 语
+index = 5, value = 35328, char = 言
+```
+
+#### 字符串转整数, 整数转字符串
+strconv.Atoi, strconv.Itoa
+```go
+	num1, _ := strconv.Atoi("-434")
+	num2 := strconv.Itoa(num1)
+	fmt.Printf("num1 = %v, type = %T\n", num1, num1)
+	fmt.Printf("num2 = %v, type = %T", num2, num2)
+```
+Output:
+```
+num1 = -434, type = int
+num2 = -434, type = string
+```
+#### 统计字符串中指定的字串
+`func Conut(s, substr string) int`
+```go
+func main() {
+	fmt.Println(strings.Count("golang golang gogogo", "go"))
+	fmt.Println(strings.Count("中文显示中文", "中"))
+	fmt.Println(strings.Count("three", ""))
+}
+```
+Output:
+```
+5
+2
+6
+```
+
+doc: Count counts the number of non-overlapping instances of substr in s. `If substr is an empty string, Count returns 1 + the number of Unicode code points in s.`
+#### 不区分大小写的字符串比较
+```go
+func main() {
+	fmt.Println(strings.EqualFold("Go", "go"))
+	fmt.Println(strings.EqualFold("AB", "ab")) // true because comparison uses simple case-folding
+	fmt.Println(strings.EqualFold("ß", "ss"))  // false because comparison does not use full case-folding
+}
+```
+Output:
+```
+true
+true
+false
+```
+#### 区分大小写的字符串比较
+```go
+func main() {
+	fmt.Println("hello"=="Hello")
+}
+```
+Output:`false`
+
+#### 字符串拆分
+```go
+func main() {
+	fmt.Printf("Fields are: %q", strings.Fields("  asd daun  aind  "))
+}
+```
+Output:`Fields are: ["asd" "daun" "aind"]`
+
+#### 返回字串第一次出现的索引值
+`func Index(s, substr string) int`
+Starting value of the index is 0
+Index returns the index of the first instance of substr in s, or -1 if substr is not present in s.
+```go
+func main() {
+	fmt.Println(strings.Index("crystal", "yst"))
+	fmt.Println(strings.Index("corresponding", "xy"))
+	fmt.Println(strings.Index("rtyuiofgh", ""))
+}
+```
+Output:
+```
+2
+-1
+0
+```
+
+### 内建函数
+无需导包直接用，但它实际上是所在的包是builtin
+doc:Package builtin provides documentation for Go's predeclared identifiers.The items documented here are not actually in package builtin but their descriptions here allow godoc to present documentation for the language's special identifiers.
+
+#### len()
+#### new()
