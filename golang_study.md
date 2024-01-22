@@ -1409,3 +1409,169 @@ doc:Package builtin provides documentation for Go's predeclared identifiers.The 
 
 #### len()
 #### new()
+new() return a pointer of the type
+new()只能用于分配值类型(int float bool string struct)
+new() 返回一个它创建的内存空间起始地址，参数为具体要创建的什么类型
+```go
+new(int)
+```
+make()用于引用类型的分配(slice channle map interface)
+
+### Go异常
+```go
+func main() {
+	test()
+	fmt.Println("Function test is called successfully")
+	fmt.Println("Execution instruction normally")
+}
+
+func test() {
+	num1 := 10
+	num2 := 0
+	result := num1 / num2
+	fmt.Println(result)
+}
+```
+Output:
+```
+panic: runtime error: integer divide by zero
+
+goroutine 1 [running]:
+main.test()
+        D:/projects/Golang/GoDemo1/main/main.go:14 +0x9
+main.main()
+        D:/projects/Golang/GoDemo1/main/main.go:6 +0x17
+exit status 2
+```
+程序发生错误(panic)之后，中断执行
+#### 错误处理机制
+Go 追求代码的简洁优雅，引入`defer`+`recover`机制处理错误
+内建(built-in)函数 `func recover() interface{}` 用于捕获panic引起的异常
+如果recover在defer函数中调用，并且当前的goroutine发生了panic，`recover会捕获到panic的值并返回它，终止panic的传播`，使得程序可以继续运行。
+```go
+func main() {
+	test()
+	fmt.Println("Function test is called successfully")
+	fmt.Println("Execute instruction normally")
+}
+
+func test() {
+	// 利用defer + recover 捕获错误, defer后加上你们函数的调用
+	defer func() {
+		// 调用recover内建函数，可以捕获错误
+		err := recover()
+		// 如果没有捕获错误，返回值为0值，也就是nil
+		if err != nil {
+			fmt.Println("错误已经捕获")
+			fmt.Println("err : ", err)
+		}
+	}()
+	num1 := 10
+	num2 := 0
+	result := num1 / num2
+	fmt.Println(result)
+}
+```
+Output:
+```
+错误已经捕获
+err :  runtime error: integer divide by zero
+Function test is called successfully
+Execute instruction normally
+```
+
+#### 抛出自定义异常
+调用errors包下的New函数
+```go
+import (
+	"errors"
+	"fmt"
+)
+
+func main() {
+	err := test()
+	if err != nil {
+		fmt.Println("Custom error: ", err)
+	}
+	fmt.Println("Function test is called successfully")
+	fmt.Println("Execute instruction normally")
+}
+
+func test() (err error) {
+	num1 := 10
+	num2 := 2
+
+	if num2 == 0 {
+		// 抛出自定义错误
+		return errors.New("除数不能为零")
+	} else {
+		result := num1 / num2
+		fmt.Println(result)
+		return nil
+	}
+}
+
+```
+Output:
+```
+Custom error:  除数不能为零
+Function test is called successfully
+Execute instruction normally
+```
+
+如果想让程序立即中断，可以调用panic()函数, 如同goruntine发生的panic一样，
+recover()会捕获panic的值
+`panic() built-in function`
+```go
+func main() {
+	defer func() {
+		err := recover()
+		if err != nil {
+			fmt.Println("Execute instruction normally")
+		}
+	}()
+	err := test()
+	if err != nil {
+		fmt.Println("Custom error: ", err)
+		panic(err)
+	}
+}
+
+func test() (err error) {
+	num1 := 10
+	num2 := 0
+
+	if num2 == 0 {
+		// 抛出自定义错误
+		return errors.New("除数不能为零")
+	} else {
+		result := num1 / num2
+		fmt.Println(result)
+		return nil
+	}
+}
+```
+Output:
+```
+Custom error:  除数不能为零
+Execute instruction normally
+```
+if `num2 = 5` or other values here, we only got output:`2`
+
+### 数组
+```go
+func main() {
+	// 给出一组数值，求出总和和平均值
+	var scores [5]int
+	sum := 50
+	for i := 1; i < len(scores); i++ {
+		scores[i] = i
+		sum += i
+	}
+	avg := float64(sum) / 5.0
+	fmt.Printf("sum = %d, avg = %.2f", sum, avg)
+}
+```
+Output:`sum = 60, avg = 12.00`
+
+#### 
