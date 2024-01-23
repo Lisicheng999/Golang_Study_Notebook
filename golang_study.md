@@ -1561,17 +1561,214 @@ if `num2 = 5` or other values here, we only got output:`2`
 ### 数组
 ```go
 func main() {
-	// 给出一组数值，求出总和和平均值
-	var scores [5]int
-	sum := 50
-	for i := 1; i < len(scores); i++ {
-		scores[i] = i
-		sum += i
+	// 输入一组数，求它们的和与平均值,并显示所有输入的内容
+	var scores [5]int32
+	for i := 0; i < len(scores); i++ {
+		fmt.Printf("Please enter the No.%v's value: ", i)
+		fmt.Scanln(&scores[i])
 	}
-	avg := float64(sum) / 5.0
-	fmt.Printf("sum = %d, avg = %.2f", sum, avg)
+
+	for i := 0; i < len(scores); i++ {
+		fmt.Printf("No.%v's value: %v", i, scores[i])
+	}
+
+	var sum int32
+	for i := 0; i < len((scores)); i++ {
+		sum += scores[i]
+	}
+
+	var avg float32 = float32(sum) / 5.0
+	fmt.Printf("sum = %v, avg = %.3f\n", sum, avg)
+}
+
+```
+Output:
+```
+Please enter the No.0's value: 79
+Please enter the No.1's value: 89
+Please enter the No.2's value: 80
+Please enter the No.3's value: 76
+Please enter the No.4's value: 88
+No.0's value: 79
+No.1's value: 89
+No.2's value: 80
+No.3's value: 76
+No.4's value: 88
+sum = 412, avg = 82.400
+sum = 413, avg = 82.600
+```
+
+使用 for-range 循环，切片
+```go
+	for key, value := range scores {
+		fmt.Printf("No.%v's value: %v\n", key, value)
+	}
+```
+
+#### 数组的初始化方式
+```go
+var arr1 [3]int = [3]int{3, 6, 9}
+var arr2 = [3]int{1, 2, 3}
+var arr3 = [...]int{4, 5, 6, 7, 8}
+var arr4 = [...]int{2: 66, 0: 33, 1: 99, 3: 88}
+arr5 := [3]int{1, 2, 3}
+arr6 := [...]int{4, 5, 6}
+arr7 := [...]int{3: 22, 1: 55, 0: 34, 2: 0}
+```
+数组的数据类型是[3]int , [4]int等等，所以这两个或其他长度的数组类型并不相等，
+可以把数组类型当作parameter
+`func test(arr [3]int) {}`
+
+通过引用的方式传递(指针)
+`func test(arr *[3]int) {}`
+嵌套使用取地址和解引用
+```go
+func main() {
+	arr5 := [3]int{1, 2, 3}
+	arr6 := [...]int{4, 5, 6}
+	arr7 := [...]int{3: 22, 1: 55, 0: 34, 2: 1}
+	fmt.Println(arr5)
+	fmt.Println(arr6)
+	fmt.Println(arr7)
+	fmt.Println(test1(&arr6))
+	fmt.Printf("(*(arr7))[0] = %v", (*(&arr7))[0])
+}
+
+func test1(arr *[3]int) (length int) {
+	// 这里arr 存储的是地址
+	return len(arr)
 }
 ```
-Output:`sum = 60, avg = 12.00`
+Output:
+```
+[1 2 3]
+[4 5 6]
+[34 55 1 22]
+3
+(*(arr7))[0] = 34
+```
 
-#### 
+使用`new(Type) *Type`获取分配的空间进行数组的定义和初始化，注意new()返回的是指向这片空间的指针
+```go
+// The new built-in function allocates memory. The first argument is a type,
+// not a value, and the value returned is a pointer to a newly
+// allocated zero value of that type.
+func main() {
+	arr := new([3]int)
+	fmt.Println(*arr)
+}
+```
+Output:`[0 0 0]`
+
+使用make
+
+#### 多维数组
+```go
+func main() {
+	// 省略初始化元素
+	arr := [2][3]int{}
+	fmt.Printf("&arr = %p, arr = %v\n", &arr, arr)
+	fmt.Printf("&arr[0] = %p, &arr[1] = %p\n", &arr[0], &arr[1])
+	fmt.Printf("arr[0] = %v, arr[1] = %v\n", arr[0], arr[1])
+}
+```
+Output:`&arr = 0xc00000e2d0, arr = [[0 0 0] [0 0 0]]`
+
+多维数组的遍历
+```go
+func main() {
+	arr := [3][3]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}
+	fmt.Println(arr)
+	// for 循环遍历
+	for i := 0; i < len(arr); i++ {
+		for j := 0; j < len(arr[i]); j++ {
+			fmt.Printf("[%v] ", arr[i][j])
+		}
+		fmt.Println()
+	}
+	// for-range
+	for key, value := range arr {
+		for i, k := range value {
+			fmt.Printf("[%v][%v]=%v ", key, i, k)
+		}
+		fmt.Println()
+	}
+}
+```
+Output:
+```
+[[1 2 3] [4 5 6] [7 8 9]]
+[1] [2] [3]
+[4] [5] [6]
+[7] [8] [9]
+[0][0]=1 [0][1]=2 [0][2]=3
+[1][0]=4 [1][1]=5 [1][2]=6
+[2][0]=7 [2][1]=8 [2][2]=9
+```
+
+#### slice 切片
+slice是golang中特殊的数据类型，切片是建立在数组类型之上的抽象，切片是对数组的一个连续片段的引用
+```go
+func main() {
+	arr := [6]int{1, 3, 5, 7, 9, 11}
+	var slice []int = arr[1:3]
+	fmt.Println(slice)
+
+	arr1 := [3][3]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}
+	slice1 := arr1[0:1]
+	fmt.Println(slice1)
+	fmt.Println(len(arr1[0:2]))
+}
+```
+Output
+```
+[3 5]
+[[1 2 3]]
+2
+```
+len(slice)获取切片或者数组的元素个数，{{1,2,3},{4,5,6}} 像这样的切片或者数组len()返回的值为`2`，因为它只能看见有两个类型为`[3]int`的元素
+
+获取切片的容量`cap()``
+```go
+func main() {
+	arr := [4][4][4]int16{}
+	m := int16(1)
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			for k := 0; k < 4; k++ {
+				arr[i][j][k] = m
+				m++
+			}
+		}
+	}
+	fmt.Println("arr:")
+	for _, j := range arr {
+		for _, v := range j {
+			fmt.Printf("%2v", v)
+		}
+		fmt.Println()
+	}
+	fmt.Println("cap(arr[1:3]):", cap(arr[1:3]))
+	fmt.Println("arr[0:0]:", arr[0:0])
+}
+```
+Output:
+```
+arr:
+[ 1  2  3  4][ 5  6  7  8][ 9 10 11 12][13 14 15 16]
+[17 18 19 20][21 22 23 24][25 26 27 28][29 30 31 32]
+[33 34 35 36][37 38 39 40][41 42 43 44][45 46 47 48]
+[49 50 51 52][53 54 55 56][57 58 59 60][61 62 63 64]
+cap(arr[1:3]): 3
+arr[0:0]: []
+```
+`arr[0:0]`这样的切片返回的结果为[]而不是nil
+```go
+	if arr[0:0] != nil {
+		fmt.Println("arr[0:0] is not nil")
+	}
+```
+Problem:`this nil check is always true (SA4031)`
+
+##### 通过make来创建切片
+make(type, len, cap)
