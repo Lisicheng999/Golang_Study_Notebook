@@ -1771,4 +1771,273 @@ arr[0:0]: []
 Problem:`this nil check is always true (SA4031)`
 
 ##### 通过make来创建切片
-make(type, len, cap)
+make(type, len, cap) 切片类型，切片长度，切片容量
+```go
+func main() {
+	slice := make([]int, 4, 20)
+	fmt.Println(slice)
+	fmt.Println(len(slice))
+	fmt.Println(cap(slice))
+}
+```
+make在底层创建一个长度为20的array，基于这个数组创建一个长度为4的slice，但无法访问到这个数组，只能访问到这个切片，数组对外不可见，只能通过切片间接的访问到数组
+Output:
+```
+[0 0 0 0]
+4
+20
+```
+
+doc:
+```go
+//	Slice: The size specifies the length. The capacity of the slice is
+//	equal to its length. A second integer argument may be provided to
+//	specify a different capacity; it must be no smaller than the
+//	length. For example, make([]int, 0, 10) allocates an underlying array
+//	of size 10 and returns a slice of length 0 and capacity 10 that is
+//	backed by this underlying array.
+```
+或者说说如果不指定第二个integer参数，make(Type, size ...int), 创建的slice的 capacity和length一样大
+
+##### 向切片中加入元素
+```go
+func main() {
+	slice := make([]int, 0, 5)
+	fmt.Printf("slice: %v\nlen(slice): %v\ncap(slice): %v\n--------\n", slice, len(slice), cap(slice))
+	slice = append(slice, 1, 2)
+	fmt.Printf("slice: %v\nlen(slice): %v\ncap(slice): %v\n--------\n", slice, len(slice), cap(slice))
+	slice = append(slice, 3, 4, 5)
+	fmt.Printf("slice: %v\nlen(slice): %v\ncap(slice): %v\n--------\n", slice, len(slice), cap(slice))
+	slice = append(slice, 6)
+	fmt.Printf("slice: %v\nlen(slice): %v\ncap(slice): %v\n--------\n", slice, len(slice), cap(slice))
+}
+```
+Output:
+```
+slice: []
+len(slice): 0
+cap(slice): 5
+--------
+slice: [1 2]
+len(slice): 2
+cap(slice): 5
+--------
+slice: [1 2 3 4 5]
+len(slice): 5
+cap(slice): 5
+--------
+slice: [1 2 3 4 5 6]
+len(slice): 6
+cap(slice): 10
+--------
+```
+可以看到，超出容量后的值，append会增加一倍的容量(不一定),append会创建一个容量更大的新数组，将原有内容复制到新数组，
+##### copy
+```go
+func main() {
+	a := []int{1, 2, 3, 4, 5, 6}
+	b := make([]int, 12)
+	copy(b, a)
+	fmt.Println(b)
+}
+```
+Output:
+```
+[1 2 3 4 5 6 0 0 0 0 0 0]
+```
+会按照顺序将a的内容复制到b替换，从起始位置开始替换
+
+### 映射 map
+`map的key-value`是无序的
+```go
+func main() {
+	// 只声明map内存是没有分配空间的,必须通过make()进行初始化
+	var a map[int]string = make(map[int]string, 10)
+	fmt.Println(a)
+	a[10001] = "张三"
+	a[10002] = "李四"
+	a[10003] = "王五"
+	fmt.Println(a)
+}
+
+```
+Output:
+```
+map[]
+map[10001:张三 10002:李四 10003:王五]
+```
+
+假如有重名的键
+```go
+func main() {
+	// 只声明map内存是没有分配空间的,必须通过make()进行初始化
+	var a map[int]string = make(map[int]string, 10)
+	a[10001] = "张三"
+	a[10001] = "李四"
+	fmt.Println(a)
+}
+
+```
+Output:
+```
+map[10001:李四]
+```
+同名键存在后，使得`"李四"`替换了`"张三"`
+key不能重复，但value可以
+`假如通过任意方式定义了map后，又再次重新使用make等方式分配内容，原有的内容将会消失，等于clear()了map`
+
+map定义方式
+```go
+	a := make(map[int]string, 10)
+	b := make(map[int]string)
+	c := map[int]string{
+		10001: "张三",
+		10002: "李四",
+	}
+```
+#### 删除一个键值对 delete()
+```go
+func main() {
+	a := map[int]string{
+		10001: "张三",
+		10002: "李四",
+	}
+	delete(a, 10001)
+	fmt.Println(a)
+}
+```
+Output:
+```
+map[10002:李四]
+```
+
+#### 删除所有键值对 clear()
+删除不存在的键值对不会报错
+- 删除map中的所有内容:
+遍历手动删除，或者make一个新的map，让原来的内容被GC当作垃圾回收，使用clear()函数
+```
+// The clear built-in function clears maps and slices.
+// For maps, clear deletes all entries, resulting in an empty map.
+```
+
+#### 查找
+`value, bool = map[key]`
+```go
+func main() {
+	a := map[int]string{
+		10001: "张三",
+		10002: "李四",
+	}
+
+	value, flag := a[10003]
+	fmt.Println(value, " ", flag)
+}
+
+```
+Output:
+`   false`
+
+#### map的长度
+```go
+func main() {
+	a := map[int]string{
+		10001: "张三",
+		10002: "李四",
+		10003: "王五",
+		123:   "xxx",
+	}
+	fmt.Println(len(a))
+}
+```
+Output:
+`4`
+#### map遍历
+```go
+func main() {
+	a := map[int]string{
+		101: "张三",
+		102: "李四",
+		123: "xxx",
+		103: "王五",
+	}
+	for k, v := range a {
+		fmt.Printf("%v:\"%v\"\n", k, v)
+	}
+}
+```
+Output:
+```
+103:"王五"
+101:"张三"
+102:"李四"
+123:"xxx"
+```
+#### map嵌套
+```go
+func main() {
+	a := make(map[string]map[int]string)
+	a["班级1"] = make(map[int]string)
+	a["班级1"][1001] = "张三"
+	a["班级1"][1002] = "李四"
+	a["班级2"] = map[int]string{
+		1001: "asd",
+		1008: "fas",
+	}
+	fmt.Println(a)
+}
+
+```
+Output:
+`map[班级1:map[1001:张三 1002:李四] 班级2:map[1001:asd 1008:fas]]`
+
+### 面向对象(OOP)
+Golang支持OOP，但和传统的面向对象有区别，并不是传统的面向对象语言，或者说Golang有着支持面向对象编程的特性
+Golang没有class，结构体(struct)和其他编程语言的类(class)有同等的地位，可以理解为是基于struct来实现的OOP
+Golang非常简洁，去掉了传统OOP语言的方法重载，构造方法，析构函数，this等
+Golang仍然有OOP的继承，封装和多态等特性，只是实现的方式和其他额OOP语言不同。
+#### 结构体定义strcut
+```go
+type Teacher struct {
+	Name   string
+	Age    int
+	School string
+}
+
+func main() {
+	teaher1 := Teacher{
+		Name:   "张三",
+		Age:    30,
+		School: "xx Collage",
+	}
+	fmt.Println(teaher1)
+	teaher1.Name = "李四"
+	teaher1.Age = 26
+	teaher1.School = "yy Collage"
+	fmt.Println(teaher1)
+}
+```
+和正常的数据类型一样的进行初始化，访问改变成员变量使用 `.` 表示
+Output:
+```
+{张三 30 xx Collage}
+{李四 26 yy Collage}
+```
+#### 使用指针引用结构体
+```go
+type Teacher struct {
+	Name   string
+	Age    int
+	School string
+}
+
+func main() {
+	t1 := Teacher{
+		Name:   "Jack",
+		Age:    20,
+		School: "Night City Collage",
+	}
+
+	pointer := &t1
+	fmt.Printf("Pointer:%v", pointer)
+}
+```
