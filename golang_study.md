@@ -731,15 +731,15 @@ func main() {
 break的作用是结束距离它最近的那个循环`jmp`
 golang可以给每个上循环加上标签, 指定要break的循环
 根据代码书写原则必须使用到定义的标签
-`lable_name`
+`LABLE_NAME`
 ```go
 func main() {
-lable1:
+LABLE1:
 	for i := 1; i <= 5; i++ {
 		for j := 2; j <= 4; j++ {
 			fmt.Printf("i=%v, j=%v\n", i, j)
 			if i == 2 && j == 2 {
-				break lable1
+				break LABLE1
 			}
 		}
 	}
@@ -780,14 +780,14 @@ func main() {
 同样的continue只会影响最近的循环体
 同样的continue可以指定需要continue的循环体标签
 ```go
-lable1:
+LABLE1:
 func main() {
-lable1:
+LABLE1:
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
 			if i == 1 && j == 1 {
 				fmt.Println("Skip this line")
-				continue lable1
+				continue LABLE1
 			}
 			fmt.Printf("i=%v, j=%v\n", i, j)
 		}
@@ -807,14 +807,14 @@ i=2, j=2
 ```
 
 #### goto
-同样的goto可以使用`lable`控制
+同样的goto可以使用`LABLE`控制
 ```go
 func main() {
 	fmt.Print(1)
 	fmt.Print(2)
-	goto lable_goto4
+	goto LABLE_GOTO4
 	fmt.Print(3)
-lable_goto4:
+LABLE_GOTO4:
 	fmt.Print(4)
 	fmt.Print(5)
 }
@@ -1031,7 +1031,7 @@ func AddAndSub(x float64, y float64) (float64, float64) {
 	return add, sub
 }
 ```
-还可以给返回值命名，这样在接受多个返回值时可以不用考虑顺序
+还可以给返回值命名，这样在接受多个返回值时可以不用考虑顺序，推荐定义命名返回值，而不是非命名返回值
 ```go
 func AddAndSub(x float64, y float64) (add float64, sub float64) {
 	add = x + y
@@ -2024,20 +2024,413 @@ Output:
 ```
 #### 使用指针引用结构体
 ```go
-type Teacher struct {
-	Name   string
-	Age    int
-	School string
+func main() {
+	var t *Teacher = new(Teacher)
+	t1 := new(Teacher)
+	(*t).Name = "John"
+	(*t).Age = 22
+	(*t).School = "xx Collage"
+	fmt.Println(*t)
+	fmt.Println(t)
+	// Golang提供了简洁的赋值方式，可以直接：
+	t1.Name = "Jack"
+	t1.Age = 20
+	t1.School = "Night City Collage"
+	fmt.Println(*t1)
+	fmt.Println(t1)
+}
+```
+Output:
+```
+{John 22 xx Collage}
+&{John 22 xx Collage}
+&{Jack 20 Night City Collage}
+{Jack 20 Night City Collage}
+```
+同样的，可以使用`t := *Teacher{}`的方式创建结构体指针
+
+#### 结构体之间的转换
+结构体之间的转换需要拥有相同的字段
+显式转换
+```go
+type Student struct {
+	Age int
+}
+
+type Person struct {
+	Age int
 }
 
 func main() {
-	t1 := Teacher{
-		Name:   "Jack",
-		Age:    20,
-		School: "Night City Collage",
-	}
-
-	pointer := &t1
-	fmt.Printf("Pointer:%v", pointer)
+	s := Student{10}
+	p := Person{10}
+	s = Student(p)
+	fmt.Println(s)
+	fmt.Println(p)
 }
 ```
+Output:
+```
+{10}
+{10}
+```
+
+定义类型别名(Alias)也不能直接赋值，同样需要显式转换
+```go
+type Student struct {
+	Age int
+}
+
+type Stu Student
+
+func main() {
+	s1 := Student{Age: 19}
+	var s2 Stu
+	s2 = s1
+	fmt.Println(s2)
+}
+```
+Problems:
+```
+cannot use s1 (variable of type Student) as Stu value in assignment
+```
+##### 方法
+方法作用在指定的数据类型上，和指定的数据类型绑定
+`func (a A) test() {}` 体现方法`test()`和结构体A的绑定关系
+
+```go
+type Person struct {
+	Name string
+}
+
+// 绑定到Person
+func (person Person) test() {
+	fmt.Println(person.Name)
+}
+
+func main() {
+	p := Person{}
+	p.Name = "Jack"
+	p.test()
+}
+```
+Output:
+`Jack`
+
+绑定到自定义类型的函数(方法)，依然遵循值传递机制(值拷贝)
+
+#### 封装
+就像Java类似地封装代码，根据go的规则，identifier首字母大写表示public，小写表示private
+In GoDemo1/person.go
+```go
+package person
+
+import "fmt"
+
+type person struct {
+	Name string
+	age  int
+}
+
+func NewPerson(name string) (p *person) {
+	return &person{
+		Name: name,
+	}
+}
+
+func (p *person) SetAge(age int) {
+	if age >= 0 && age <= 150 {
+		p.age = age
+	} else {
+		fmt.Println("传入的年龄范围有误")
+	}
+}
+
+func (p *person) GetAge() (age int) {
+	return p.age
+}
+
+```
+In GoDemo1/main.go
+```go
+func main() {
+	p := person.NewPerson("张三")
+	p.SetAge(22)
+	fmt.Println(p.Name)
+	fmt.Println(*p)
+}
+```
+Output:
+```
+张三
+{张三 22}
+```
+
+#### 类似的继承
+当多个结构体存在相同的属性(字段)和方法时，可以从这些结构体中抽象出结构体，在该结构体中定义这些相同的属性和方法，其他的结构体不需要重新定义这些属性和方法，只需要嵌套一个匿名结构体即可。
+```go
+package main
+
+import (
+	"fmt"
+)
+
+type Animal struct {
+	Age    int
+	Weight float32
+}
+
+func (animal *Animal) Shout() {
+	fmt.Println("Animal can shout")
+}
+
+func (animal *Animal) ShowInfo() {
+	fmt.Printf("Animal's age is: %v, weight is: %v\n", animal.Age, animal.Weight)
+}
+
+type Cat struct {
+	// Use inheritance thought
+	Animal
+}
+
+// Binding specific method to Cat
+func (c *Cat) scratch() {
+	fmt.Println("Cat can scratch people")
+}
+
+func main() {
+	cat := &Cat{}
+	cat.Animal.Weight = 5.3
+	cat.Animal.Shout()
+	cat.Animal.ShowInfo()
+	cat.scratch()
+}
+
+```
+Output:
+```go
+Animal can shout
+Animal's age is: 0, weight is: 5.3
+Cat can scratch people
+```
+
+结构体可以使用嵌套匿名结构体所有的字段和方法，即，首字母大小写的字段都可以用
+
+```go
+
+package main
+
+import (
+	"fmt"
+)
+
+type Animal struct {
+	Age    int
+	weight float32
+}
+
+func (animal *Animal) shout() {
+	fmt.Println("Animal can shout")
+}
+
+func (animal *Animal) showInfo() {
+	fmt.Printf("Animal's age is: %v, weight is: %v\n", animal.Age, animal.weight)
+}
+
+type Cat struct {
+	// Use inheritance thought
+	Animal
+}
+
+// Binding specific method to Cat
+func (c *Cat) scratch() {
+	fmt.Println("Cat can scratch people")
+}
+
+func main() {
+	cat := &Cat{}
+	cat.Age = 2
+	cat.weight = 3.4
+	cat.shout()
+	cat.showInfo()
+	cat.scratch()
+}
+```
+Output
+```
+Animal can shout
+Animal's age is: 2, weight is: 3.4
+Cat can scratch people
+```
+##### 就近原则
+假如继承的子类(结构体)拥有和父级同样的字段，调用或赋值时未指明是哪一个字段，默认调用或赋值最近的一级,或者说掉用自己本身
+```go
+type X struct {
+	a int
+	b int
+}
+
+type Y struct {
+	X
+	a int
+}
+
+func main() {
+	y := Y{}
+	y.a = 10
+	fmt.Println(y)
+}
+```
+Output:
+`{{0 0} 10}`
+
+##### 字段歧义
+继承多个父结构体的情况时，假如结构体A，B都含有相同的字段，此时省略匿名结构体访问父类结构体字段时会报错，必须指明访问的是哪一个结构体的字段
+
+```go
+type X struct {
+	a int
+	b string
+}
+
+type Y struct {
+	c int
+	d string
+	a int
+}
+
+type Z struct {
+	X
+	Y
+}
+
+func main() {
+	z := Z{X{10, "aaa"}, Y{20, "bbb", 30}}
+	fmt.Println(z)
+	fmt.Println(z.a)
+}
+```
+Problem:
+`ambiguous selector z.a`
+改为`z.X.a` 或 `z.Y.a`才不会产生歧义
+
+##### 匿名数据类型
+
+甚至，结构体成员变量也可以是匿名的
+```go
+type X struct {
+	a int
+	b string
+	float32
+}
+
+func main() {
+	x := X{15, "xxx", 12.3}
+	fmt.Println(x)
+}
+
+```
+Output:
+`{15 xxx 12.3}`
+
+##### 创建结构体实例同时对匿名结构体初始化
+##### 嵌入匿名结构体指针
+如上一系列代码已经展示，需要注意的是，对含有匿名字段的结构体初始化，要么全部指定实参对应的形参名，要么全部不指定，匿名字段的形参绑定使用字段所使用的匿名数据类型
+访问匿名结构体指针需要使用`*`解引用
+```go
+type A struct {
+	a int
+	string
+}
+
+type B struct {
+	*A
+	string
+}
+
+func main() {
+	b := B{&A{a: 30, string: "aaaa"}, "bbbb"}
+	fmt.Println(b)
+	fmt.Println(*b.A)
+}
+```
+Output:
+```
+{0xc000008048 bbbb}
+{30 aaaa}
+```
+字段A是匿名结构体指针，需要解引用才能获取其中的值，而明面上它只是一个地址
+
+##### 成员字段为结构体(组合模式)
+```go
+type A struct {
+	a int
+}
+
+type B struct {
+	a int
+	b string
+	c A
+}
+
+func main() {
+	b := B{a: 10, b: "abc", c: A{12}}
+	fmt.Println(b)
+}
+```
+Output:
+`{10 abc {12}}`
+
+#### interface{} 接口
+接口：定义规则，定义规范，定义某种能力
+Golang不需要显示的实现接口，没有implement关键字
+
+Golang中实现接口是基于方法的，而不是基于接口的
+
+接口的目的是定义规范，由别人来实现接口
+```go
+package main
+
+import (
+	"fmt"
+)
+
+// Define interface
+type SayHello interface {
+	sayHello()
+}
+
+// implement interface
+type Chinese struct {
+}
+
+func (person Chinese) sayHello() {
+	fmt.Println("你好")
+}
+
+type American struct {
+}
+
+func (person American) sayHello() {
+	fmt.Println("Hello")
+}
+
+func greet(s SayHello) {
+	s.sayHello()
+}
+
+func main() {
+	p1 := Chinese{}
+	greet(p1)
+	p2 := American{}
+	greet(p2)
+}
+
+```
+Output:
+```
+你好
+Hello
+```
+
+接口本身不能创建任何实例
