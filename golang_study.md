@@ -2433,4 +2433,174 @@ Output:
 Hello
 ```
 
-接口本身不能创建任何实例
+接口本身不能创建任何实例，但可以指向一个已经创建的实例
+```go
+func main() {
+	p1 := Chinese{}
+	greet(p1)
+	p2 := American{}
+	greet(p2)
+	var s SayHello = p1
+	s.sayHello()
+}
+```
+
+只要是自定义数据类型，就可以实现接口
+一个接口可以继承多个别的接口
+```go
+type CInterface interface {
+	c()
+}
+
+type BInterface interface {
+	b()
+}
+
+type AInterface interface {
+	BInterface
+	CInterface
+	a()
+}
+
+type Student struct {
+}
+
+func (s Student) a() {
+	fmt.Println("a")
+}
+
+func (s Student) b() {
+	fmt.Println("b")
+}
+
+func (s Student) c() {
+	fmt.Println("c")
+}
+
+func main() {
+	var s Student
+	var a AInterface = s
+	a.a()
+	a.b()
+	a.c()
+}
+```
+Output:
+```
+a
+b
+c
+```
+
+interface类型默认是一个指针(引用类型),如果没有对interface初始化就使用，那么会输出nul
+
+
+空接口没有任何方法，所以可以理解为所有类型都实现了空接口
+```go
+	var num float64 = 9.3
+	var e2 interface{} = num
+	fmt.Println(e2)
+```
+Output:
+`9.3`
+
+#### 多态
+多态是通过接口实现的
+如上文的SayHello 中，可以通过上下文来识别具体是什么类型，具体是什么类型的实例，就体现多态
+
+### 断言
+```go
+package main
+
+import (
+	"fmt"
+)
+
+type SayHello interface {
+	sayHello()
+}
+
+type Chinese struct {
+	name string
+}
+
+type American struct {
+	name string
+}
+
+func (person Chinese) sayHello() {
+	fmt.Println("你好")
+}
+
+func (person Chinese) sayChinese() {
+	fmt.Println("其他的话")
+}
+
+func (person American) sayHello() {
+	fmt.Println("hello")
+}
+
+func (person American) sayAmerican() {
+	fmt.Println("Something")
+}
+
+func greet(s SayHello) {
+	s.sayHello()
+	switch s.(type) {
+	case Chinese:
+		ch := s.(Chinese)
+		ch.sayChinese()
+	case American:
+		ch := s.(American)
+		ch.sayAmerican()
+	}
+}
+
+func main() {
+	c := Chinese{name: "Chinese"}
+	a := American{name: "American"}
+
+	greet(c)
+	greet(a)
+}
+```
+Output:
+```
+你好
+其他的话
+hello
+Something
+```
+
+### 文件读写 File
+
+#### 打开文件
+`Open(name string) (*File, error)`
+```go
+func main() {
+	// 打开文件
+	file, err := os.Open("D:/projects/Golang/test.txt")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("file: %v", file)
+	}
+}
+```
+If successful, Output:
+`file: &{0xc000076a00}`
+failure, Output:
+`open D:/projects/Golang/test2.txt: The system cannot find the file specified.`
+
+#### 关闭文件
+File.Close()
+```go
+	// 关闭文件
+	err2 := file.Close()
+	if err2 != nil {
+		fmt.Println("File closing failure")
+	}
+```
+Output:
+`File closed successfully.`
+如果读取失败，文件会关闭异常
