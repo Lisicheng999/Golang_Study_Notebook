@@ -2604,3 +2604,75 @@ File.Close()
 Output:
 `File closed successfully.`
 如果读取失败，文件会关闭异常
+
+#### 读取文件内容 io流(io, io/ioutil)
+
+```go
+func main() {
+	// 读取文件
+	content, err := ioutil.ReadFile("D:/projects/Golang/test.txt")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(content)
+	}
+}
+```
+在对应路径的文件内容:
+```
+Line1: context
+ABCDEFG
+中文
+```
+Output:
+`[76 105 110 101 49 58 32 99 111 110 116 101 120 116 13 10 65 66 67 68 69 70 71 13 10 228 184 173 230 150 135]`
+fmt输出file内容为[]byte形式,格式化输出内容为10进制的UTF-8编码
+可以看到换行操作是由 `13 10`完成的, 对应`回车 换行`操作
+回车:光标定位到行开头
+
+需要注意的是
+```
+Package ioutil implements some I/O utility functions.
+
+Deprecated: As of Go 1.16, the same functionality is now provided by package io or package os, and those implementations should be preferred in new code. See the specific function documentation for details.
+```
+
+ioutil.Readfile():
+```go
+func ReadFile(filename string) ([]byte, error) {
+	return os.ReadFile(filename)
+}
+```
+
+带有缓冲区的读取文件内容的方式 4096字节
+```go
+func main() {
+	file, err := os.Open("d:/projects/Golang/test.txt")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(file)
+	} 
+
+	defer file.Close()
+
+	// Create a stream
+
+	reader := bufio.NewReader(file)
+
+	for {
+		str, err := reader.ReadString('\n')
+		fmt.Print(str)
+		if err == io.EOF {
+			break
+		}
+	}
+}
+```
+Output:
+```
+&{0xc000076a00}
+Line1: context
+ABCDEFG
+中文
+```
