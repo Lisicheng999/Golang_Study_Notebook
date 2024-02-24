@@ -2627,8 +2627,11 @@ ABCDEFG
 Output:
 `[76 105 110 101 49 58 32 99 111 110 116 101 120 116 13 10 65 66 67 68 69 70 71 13 10 228 184 173 230 150 135]`
 fmt输出file内容为[]byte形式,格式化输出内容为10进制的UTF-8编码
-可以看到换行操作是由 `13 10`完成的, 对应`回车 换行`操作
+可以看到换行操作是由 `13 10`完成的,(0x0d 0x0a) 对应`回车 换行`操作 `CR LF`
 回车:光标定位到行开头
+
+而在unix-like系统中，如linux, 换行只需要`10` 完成，即可换行到新的一行开头
+
 
 需要注意的是
 ```
@@ -2636,6 +2639,7 @@ Package ioutil implements some I/O utility functions.
 
 Deprecated: As of Go 1.16, the same functionality is now provided by package io or package os, and those implementations should be preferred in new code. See the specific function documentation for details.
 ```
+
 
 ioutil.Readfile():
 ```go
@@ -2645,6 +2649,7 @@ func ReadFile(filename string) ([]byte, error) {
 ```
 
 带有缓冲区的读取文件内容的方式 4096字节
+bufio.NewReader()
 ```go
 func main() {
 	file, err := os.Open("d:/projects/Golang/test.txt")
@@ -2652,7 +2657,7 @@ func main() {
 		fmt.Println(err)
 	} else {
 		fmt.Println(file)
-	} 
+	}
 
 	defer file.Close()
 
@@ -2661,18 +2666,201 @@ func main() {
 	reader := bufio.NewReader(file)
 
 	for {
-		str, err := reader.ReadString('\n')
+		str, err := reader.ReadString(0x0a)
 		fmt.Print(str)
+		for _, c := range str {
+			fmt.Printf("%v ", c)
+		}
+		fmt.Println()
 		if err == io.EOF {
 			break
 		}
 	}
 }
+
 ```
 Output:
 ```
 &{0xc000076a00}
 Line1: context
-ABCDEFG
-中文
+76 105 110 101 49 58 32 99 111 110 116 101 120 116 13 10
+Line2: 字段
+76 105 110 101 50 58 32 23383 27573 13 10
 ```
+
+os.OpenFile()
+`func OpenFile(name string, flag int, perm FileMode) (*File, error)`
+name: 文件路径
+flag: 文件打开模式， 可以flag拼接在一起(如 `ox.O_RDONLY|O_CREATE`)
+perm: 权限控制(在windows下设置无效)
+
+```go
+func main() {
+	// an operation that writes to a file
+
+	file_path := "D:/projects/Golang/demo.txt"
+	// open file
+	// os.APPEND ：append data to the file WHEN writing.
+	// os.CREATE : create a file when file does not exist.
+	// 0666: invalid in windows.
+	file, err := os.OpenFile(file_path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println("File opening failure")
+		return
+	}
+
+	// close the file in time
+	defer file.Close()
+
+	// Writes to file using buffered stream
+	writer := bufio.NewWriter(file)
+	for i := 0; i < 5; i++ {
+		writer.WriteString("Hello world\n")
+	}
+
+	// The data stream is buffered, so the data needs to be refreshed
+	writer.Flush()
+}
+```
+A new file is generated : demo.txt
+```
+Hello world
+Hello world
+Hello world
+Hello world
+Hello world
+
+```
+#### 文件复制 ReadFile()
+`func ReadFile(filename string) ([]byte error)`
+doc: ReadFile reads the named file and returns the contents. A successful call returns err == nil, not err == EOF. Because ReadFile reads the whole file, it does not treat an EOF from Read as an error to be reported.
+```go
+func main() {
+	// Cope source file to object file
+	fileSourcePath := "D:/projects/Golang/demo.txt"
+	fileTargetPath := "D:/projects/Golang/demo_target.txt"
+
+	// Read file
+	content, errRead := os.ReadFile(fileSourcePath)
+	if errRead != nil {
+		log.Fatal(errRead)
+	}
+	fmt.Println(content)
+
+	// Write out file
+	errWrite := os.WriteFile(fileTargetPath, content, 0666)
+	if errWrite != nil {
+		log.Fatal(errWrite)
+	}
+}
+```
+Output:
+`[72 101 108 108 111 32 119 111 114 108 100 10]`
+A new file is generated : demo_target.txt :
+```
+Hello world
+
+```
+
+### 协程 Goroutine
+```go
+func test() {
+	for i := 0; i <= 3; i++ {
+		fmt.Println("test(): " + strconv.Itoa(i))
+		// block thread for 1 sec
+		time.Sleep(time.Second)
+	}
+}
+
+func main() {
+	test()
+	for i := 0; i <= 3; i++ {
+		fmt.Println("main(): " + strconv.Itoa(i))
+		// block thread for 1 sec
+		time.Sleep(time.Second)
+	}
+}
+```
+Output:
+```
+test(): 0
+test(): 1
+test(): 2
+test(): 3
+main(): 0
+main(): 1
+main(): 2
+main(): 3
+```
+
+Add the keyword `go` before function `test()` to start a goroutine
+```go
+func main() {
+	go test()
+	for i := 0; i <= 3; i++ {
+		fmt.Println("main(): " + strconv.Itoa(i))
+		// block thread for 1 sec
+		time.Sleep(time.Second)
+	}
+}
+```
+Output:
+```
+main(): 0
+test(): 0
+test(): 1
+main(): 1
+main(): 2
+test(): 2
+test(): 3
+main(): 3
+```
+如果主线程退出了，则协程即使还没有执行完毕，也会退出
+协程可以在主线程结束前自己结束
+
+使用匿名函数的形式启动一个协程
+```go
+func main() {
+	go func() {
+		fmt.Println(1)
+	}()
+	time.Sleep(time.Second * 2)
+}
+```
+Output:
+```
+1
+```
+如果从协程内部访问主线程的变量，例如将代码修改为
+```go
+func main() {
+	for i := 1; i < 10; i++ {
+		go func() {
+			fmt.Print(i, " ")
+		}()
+	}
+	time.Sleep(time.Second * 2)
+}
+```
+Output:
+```
+10 10 10 10 10 10 10 10 4 
+...
+```
+出现这种情况的原因是，for循环创建了10个goroutine，而协程的并发是由go运行时管理的
+goroutine的调度和并发是无序的， 每个goroutine可能在创建时就获取到了i的值，也可能在创建后获取到了i的值
+
+改为：
+```go
+func main() {
+	for i := 1; i < 10; i++ {
+		go func(n int) {
+			fmt.Print(n, " ")
+		}(i)
+	}
+	time.Sleep(time.Second * 2)
+}
+```
+Output:
+`1 9 5 6 7 8 2 3 4`
+这样在每次主线程创建协程的时候都会传入当前的值
