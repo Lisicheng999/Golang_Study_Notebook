@@ -2815,8 +2815,8 @@ test(): 2
 test(): 3
 main(): 3
 ```
-如果主线程退出了，则协程即使还没有执行完毕，也会退出
-协程可以在主线程结束前自己结束
+如果主协程退出了，则协程即使还没有执行完毕，也会退出
+协程可以在主协程结束前自己结束
 
 使用匿名函数的形式启动一个协程
 ```go
@@ -2831,7 +2831,7 @@ Output:
 ```
 1
 ```
-如果从协程内部访问主线程的变量，例如将代码修改为
+如果从协程内部访问主协程的变量，例如将代码修改为
 ```go
 func main() {
 	for i := 1; i < 10; i++ {
@@ -2863,4 +2863,51 @@ func main() {
 ```
 Output:
 `1 9 5 6 7 8 2 3 4`
-这样在每次主线程创建协程的时候都会传入当前的值
+这样在每次主协程创建协程的时候都会传入当前的值
+
+#### 使用sync.WaitGroup
+```
+A WaitGroup waits for a collection of goroutines to finish.
+The main goroutine calls Add to set the number of
+goroutines to wait for. Then each of the goroutines
+runs and calls Done when finished. At the same time,
+Wait can be used to block until all goroutines have finished.
+
+A WaitGroup must not be copied after first use.
+
+In the terminology of the Go memory model, a call to Done
+“synchronizes before” the return of any Wait call that it unblocks.
+```
+```go
+var wg sync.WaitGroup
+
+func main() {
+	start := time.Now()
+	for i := 0; i < 5; i++ {
+		// The main goroutine calls Add to set
+		// the number of goroutines to wait for
+		wg.Add(1)
+		go func(n int) { 
+			// Prevent forgetting to execute Done()
+			defer wg.Done()
+			fmt.Println("goroutine: ", n)
+		}(i)
+	}
+	// Wait can be used to block until all goroutines have finished
+	wg.Wait()
+	end := time.Now()
+	delta := end.Sub(start)
+	fmt.Printf("main function took this amout of time: %v\n", delta)
+}
+
+```
+Output:
+```
+goroutine:  0
+goroutine:  1
+goroutine:  3
+goroutine:  2
+goroutine:  4
+```
+
+
