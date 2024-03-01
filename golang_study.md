@@ -3199,3 +3199,57 @@ func main() {
 Problem:
 `invalid operation: cannot receive from send-only channel intChan (variable of type chan<- int)`
 
+管道阻塞， 允许写入缓冲，但需要从管道中读取，否则报错
+注释掉写入管道Sleep, 修改管道容量，使得
+```go
+var wg sync.WaitGroup
+
+// write data into channel
+func writeData(intChan chan int) {
+	defer wg.Done()
+	for i := 1; i <= 5; i++ {
+		intChan <- i
+		fmt.Printf("The data that has been written is: %v\n", i)
+		// Sleep for one second after reading the data
+		// time.Sleep(time.Second)
+	}
+	close(intChan)
+}
+
+func readData(intChan chan int) {
+	defer wg.Done()
+	for v := range intChan {
+		fmt.Printf("The data that has been read is: %v\n", v)
+		time.Sleep(time.Second)
+	}
+}
+
+func main() {
+	wg.Add(2)
+	intChan := make(chan int, 3)
+	go writeData(intChan)
+	go readData(intChan)
+	wg.Wait()
+}
+
+```
+Output:
+```
+The data that has been written is: 1
+The data that has been written is: 2
+The data that has been written is: 3
+The data that has been written is: 4
+The data that has been read is: 1
+The data that has been read is: 2
+The data that has been written is: 5
+The data that has been written is: 6
+The data that has been read is: 3
+The data that has been read is: 4
+The data that has been read is: 5
+The data that has been read is: 6
+```
+
+#### select
+解决多个管道的选择问题，也叫做多路复用，从多个管道中随机公平的选择一个执行，case 后面必须进行的时io操作，不能是等值
+加入default 防止select 被阻塞
+
