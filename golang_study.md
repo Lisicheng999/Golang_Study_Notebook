@@ -2909,5 +2909,293 @@ goroutine:  3
 goroutine:  2
 goroutine:  4
 ```
+#### 锁
+确保一个协程执行代码逻辑的时候，另外的协程不执行
+`var lock sync.Mutex` 互斥锁
+```go
+var num int
+var wg sync.WaitGroup
 
+// 加入互斥锁
+var lock sync.Mutex
+
+func add() {
+	defer wg.Done()
+	for i := 0; i < 10000; i++ {
+		lock.Lock()
+		num++
+		lock.Unlock()
+	}
+}
+
+func sub() {
+	defer wg.Done()
+	for i := 0; i < 10000; i++ {
+		lock.Lock()
+		num--
+		lock.Unlock()
+	}
+}
+
+func main() {
+	wg.Add(2)
+	start := time.Now()
+	// start goroutine
+	go add()
+	go sub()
+	wg.Wait()
+	fmt.Printf("num: %v\n", num)
+	fmt.Printf("time: %v microseconds", time.Since(start).Microseconds())
+}
+
+```
+Output:
+```
+num: 0
+time: 521 microseconds
+```
+而取消互斥锁后，运行时间来到了几十微秒，可见互斥锁的性能很低
+
+使用读写锁，读多余写的次数的场景
+```go
+var num int
+var wg sync.WaitGroup
+
+// 加入互斥锁
+var lock sync.RWMutex
+
+func Read() {
+	defer wg.Done()
+	lock.RLock()
+	fmt.Println("Start reading data")
+	fmt.Println("The data has been read successfully")
+	lock.RUnlock()
+}
+
+func Write() {
+	defer wg.Done()
+	lock.Lock()
+	fmt.Println("Start modifying data")
+	fmt.Println("The data has been modified successfully")
+	lock.Unlock()
+}
+
+func main() {
+	wg.Add(2)
+	start := time.Now()
+	// start goroutine
+	go Read()
+	go Write()
+	wg.Wait()
+	fmt.Printf("num: %v\n", num)
+	fmt.Printf("time: %v microseconds\n", time.Since(start).Microseconds())
+}
+
+```
+Output:
+```
+Start modifying data
+The data has been modified successfully
+Start reading data
+The data has been read successfully
+num: 0
+time: 523 microseconds
+```
+### GC
+garbage collection
+查看内存占用
+```go
+func main() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("%d Kb\n", m.Alloc/1024)
+}
+
+```
+
+### 管道 channel
+管道本质是一个队列，数据先进先出
+自身是线程安全的，多协程访问时，不需要加锁
+管道是一种类型，一个string管道只能存放string类型数据
+
+#### 定义一个管道，并存入数据
+```go
+func main() {
+	intChan := make(chan int, 3)
+	fmt.Printf("intChan value: %v\n", intChan)
+	intChan <- 10
+	num := 20
+	intChan <- num
+	intChan <- 40
+	intChan <- 2
+	fmt.Printf("length of chan: %v, capacity of chan: %v",
+		len(intChan), cap(intChan))
+}
+
+```
+Output:
+```
+intChan value: 0xc00007e080
+length of chan: 3, capacity of chan: 3
+```
+存入的内容不可以超过管道容量
+
+从管道中取出数据，并查看管道剩余的长度和容量
+```go
+func main() {
+	intChan := make(chan int, 3)
+	intChan <- -10
+	intChan <- 20
+	intChan <- 40
+
+	num1 := <-intChan
+	fmt.Printf("num1: %v\n", num1)
+	fmt.Printf("length of chan: %v, capacity of chan: %v",
+		len(intChan), cap(intChan))
+}
+
+```
+Output:
+```
+num1: -10
+length of chan: 2, capacity of chan: 3
+```
+
+注意，在没有使用协程的情况下，如果管道中的数据已全部取出，那么再取出就会报错
+
+#### 管道关闭
+关闭管道，不可写入数据到管道
+```go
+func main() {
+	intChan := make(chan int, 3)
+
+	intChan <- 10
+	intChan <- -20
+
+	// close channel
+	close(intChan)
+	intChan <- 30
+}
+
+```
+Output:
+```
+panic: send on closed channel
+
+goroutine 1 [running]:
+main.main()
+        D:/projects/Golang/GoDemo1/main/main.go:11 +0x65
+exit status 2
+```
+但可以继续读出数据
+```go
+func main() {
+	intChan := make(chan int, 3)
+
+	intChan <- 10
+	intChan <- -20
+
+	// close channel
+	close(intChan)
+	fmt.Println(<-intChan, " ", <-intChan)
+}
+
+```
+Output:
+`10   -20`
+
+#### 管道遍历
+```go
+func main() {
+	intChan := make(chan int, 10)
+
+	for i := 0; i < 10; i++ {
+		intChan <- i
+	}
+
+	for v := range intChan {
+		fmt.Println("value = ", v)
+	}
+}
+
+```
+Output:
+```
+value =  0
+value =  1
+value =  2
+value =  3
+value =  4
+value =  5
+value =  6
+value =  7
+value =  8
+value =  9
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [chan receive]:
+main.main()
+        D:/projects/Golang/GoDemo1/main/main.go:12 +0xd9
+exit status 2
+```
+
+注意到for-range遍历前没有关闭管道，就会出现deadlock错误，遍历前先close(chan), 就会正常结束
+
+#### 管道与协程
+
+写协程和读协程共同操作一个管道
+```go
+var wg sync.WaitGroup
+
+// write data into channel
+func writeData(intChan chan int) {
+	defer wg.Done()
+	for i := 1; i <= 3; i++ {
+		intChan <- i
+		fmt.Printf("The data that has been written is: %v\n", i)
+		// Sleep for one second after reading the data
+		time.Sleep(time.Second)
+	}
+	close(intChan)
+}
+
+func readData(intChan chan int) {
+	defer wg.Done()
+	for v := range intChan {
+		fmt.Printf("The data that has been read is: %v\n", v)
+	}
+}
+
+func main() {
+	wg.Add(2)
+	intChan := make(chan int, 50)
+	go writeData(intChan)
+	go readData(intChan)
+	wg.Wait()
+}
+
+```
+
+Output:
+```
+The data that has been written is: 1
+The data that has been read is: 1
+The data that has been written is: 2
+The data that has been read is: 2
+The data that has been written is: 3
+The data that has been read is: 3
+```
+管道可以只读或只写
+在定义时声明
+```go
+func main() {
+	// 声明为只读
+	intChan := make(chan<- int, 3)
+	intChan <- 20
+	fmt.Println("intChan2: ", <-intChan)
+}
+
+```
+Problem:
+`invalid operation: cannot receive from send-only channel intChan (variable of type chan<- int)`
 
