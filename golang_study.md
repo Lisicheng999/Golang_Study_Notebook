@@ -1448,6 +1448,11 @@ exit status 2
 Go 追求代码的简洁优雅，引入`defer`+`recover`机制处理错误
 内建(built-in)函数 `func recover() interface{}` 用于捕获panic引起的异常
 如果recover在defer函数中调用，并且当前的goroutine发生了panic，`recover会捕获到panic的值并返回它，终止panic的传播`，使得程序可以继续运行。
+
+panic是一个内建函数，用于触发一个运行时恐慌，它会立即中断当前的程序执行流程，执行所有的defer语句，然后退出程序。如果defer语句中调用了recover函数，recover会捕获到panic，并且返回panic传入的值。
+
+如果没有panic发生，defer语句中的recover调用会返回nil，并且不会对程序的执行产生任何影响。recover函数只有在当前的goroutine发生了panic时才会返回非nil的值，该值通常是panic时传入的参数
+
 ```go
 func main() {
 	test()
@@ -3253,3 +3258,251 @@ The data that has been read is: 6
 解决多个管道的选择问题，也叫做多路复用，从多个管道中随机公平的选择一个执行，case 后面必须进行的时io操作，不能是等值
 加入default 防止select 被阻塞
 
+取数据这个操作本身就是阻塞 <-Chan
+
+```go
+var wg sync.WaitGroup
+
+func main() {
+	wg.Add(2)
+	intChan := make(chan int, 1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(time.Second * 5)
+		intChan <- 10
+	}()
+
+	stringChan := make(chan string, 1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(time.Second * 2)
+		stringChan <- "msg golang"
+	}()
+
+	wg.Wait()
+	select {
+	case v := <-intChan:
+		fmt.Println("Int value: ", v)
+	case v := <-stringChan:
+		fmt.Println("String value: ", v)
+		// default:
+		// 	fmt.Println("Request timeout")
+	}
+	// wg.Wait()
+}
+```
+若`wg.Wait()`在select之前，所有管道操作完成，io从管道取数据操作会直接成功选择第一个case
+若`wg.Wait()`在select之后，所有管道写入数据还未完成，io从管道取数据操作会被阻塞，此时会等待第一个完成操作的管道响应
+若假如default, select会选择没有被阻塞的操作运行，运行到select-case处会被阻塞，所有会执行default语句
+
+select-case后面必须跟随io操作，语法设定
+
+#### panic
+使用`refer + recover`捕获panic, 即使协程出现异常，主线程也能继续运行
+假如协程抛出panic
+```go
+var (
+	wg sync.WaitGroup
+)
+
+// Output number
+func printNum() {
+	defer wg.Done()
+	for i := 0; i < 10; i++ {
+		fmt.Print(i, " ")
+	}
+}
+
+// Do the division operation
+func devide() {
+	defer wg.Done()
+	num1 := 10
+	num2 := 0
+	result := num1 / num2
+	fmt.Printf("\nThe result of division is: %v\n", result)
+}
+
+func main() {
+	wg.Add(2)
+
+	go printNum()
+	go devide()
+
+	wg.Wait()
+}
+
+```
+Output:
+```
+panic: runtime error: integer divide by zero
+
+goroutine 20 [running]:
+main.devide()
+        D:/projects/Golang/GoDemo1/main/main.go:25 +0x4c
+created by main.main in goroutine 1
+        D:/projects/Golang/GoDemo1/main/main.go:33 +0x37
+exit status 2
+```
+
+使用defer + recover
+```go
+var (
+	wg sync.WaitGroup
+)
+
+// Output number
+func printNum() {
+	defer wg.Done()
+	for i := 0; i < 10; i++ {
+		fmt.Print(i, " ")
+	}
+	fmt.Println()
+}
+
+// Do the division operation
+func devide() {
+	defer func() {
+		err := recover()
+		if err != nil {
+			fmt.Println("panic:", err)
+		}
+	}()
+	defer wg.Done()
+	num1 := 10
+	num2 := 0
+	result := num1 / num2
+	fmt.Printf("The result of division is: %v\n", result)
+}
+
+func main() {
+	wg.Add(2)
+
+	go printNum()
+	go devide()
+
+	wg.Wait()
+}
+
+```
+Output:
+```
+0 1 2 3 4 5 6 7 8 9 
+panic: runtime error: integer divide by zero
+```
+
+### Network Programming
+`package net`
+
+创建客户端和服务端
+
+client\main.go
+```go
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"os"
+)
+
+func main() {
+	fmt.Println("Client startup...")
+	// Specify the ip address and port number of the server
+	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Successfully connected to the server")
+	fmt.Println("local addr:", conn.LocalAddr().String())
+	fmt.Println("remote addr:", conn.RemoteAddr().String())
+
+	// read a line
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		str, errReader := reader.ReadString('\n')
+		if errReader != nil {
+			fmt.Println(errReader)
+			return
+		}
+
+		// write to connection
+		n, errWrite := conn.Write([]byte(str))
+		if errWrite != nil {
+			fmt.Println(errWrite)
+			return
+		}
+		fmt.Printf("Sent %v bytes of data to the server\n", n)
+	}
+}
+
+```
+in server\main.go
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"net"
+	"runtime"
+	"time"
+)
+
+func process(conn *net.Conn) {
+	defer (*conn).Close()
+	buf := make([]byte, 10)
+	for {
+		n, errRead := (*conn).Read(buf)
+		if errRead != nil {
+			if errRead != io.EOF {
+				fmt.Println("error read buffer:", errRead)
+				break
+			}
+		} else {
+			fmt.Print("msg:", string(buf[:n]))
+		}
+	}
+
+}
+
+func showMemoryInfo() {
+	// runtime.GC()
+	for {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+		fmt.Printf("Memory:%d Kb\n", m.Alloc/1024)
+		time.Sleep(time.Second * 30)
+	}
+}
+
+func main() {
+	// wg.Add(1)
+	go showMemoryInfo()
+	fmt.Println("Server startup")
+	listener, err := net.Listen("tcp", "127.0.0.1:8080")
+	if err != nil {
+		fmt.Println("Net error:", err)
+		return
+	}
+
+	defer listener.Close()
+
+	for {
+		conn, errListen := listener.Accept()
+		if errListen != nil {
+			fmt.Println("Error listening:", errListen)
+		} else {
+			fmt.Println("Client was successfully connected to the server")
+			fmt.Println("address:port:", conn.RemoteAddr().String())
+		}
+		go process(&conn)
+	}
+}
+
+```
+
+Run the two program separately at the terminal. First, startup server, then client.
+
+Output:
